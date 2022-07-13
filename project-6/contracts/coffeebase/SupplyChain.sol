@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0;
+pragma solidity >=0.4.24;
 
 import "../coffeecore/Ownable.sol";
 import "../coffeeaccesscontrol/ConsumerRole.sol";
@@ -96,8 +96,8 @@ contract SupplyChain is
         _;
         uint256 _price = items[_upc].productPrice;
         uint256 amountToReturn = msg.value - _price;
-
-         _make_payable(items[_upc].consumerID).transfer(amountToReturn);
+        address payable consumerAddress = _make_payable(items[_upc].consumerID);
+        consumerAddress.transfer(amountToReturn);
     }
 
     // Define a modifier that checks if an item.state of a upc is Harvested
@@ -394,7 +394,7 @@ contract SupplyChain is
     }
 
     // Function that allows you to convert an address into a payable address
-  function _make_payable(address x) internal pure returns (address payable) {
-    return payable(address(uint160(x)));
-  }
+    function _make_payable(address x) internal pure returns (address payable) {
+        return payable(address(uint160(x)));
+    }
 }
