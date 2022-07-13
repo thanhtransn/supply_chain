@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: MIT
-pragma solidity >=0.4.24;
+pragma solidity ^0.4.24;
 
 import "../coffeecore/Ownable.sol";
 import "../coffeeaccesscontrol/ConsumerRole.sol";
@@ -9,13 +8,14 @@ import "../coffeeaccesscontrol/RetailerRole.sol";
 
 // Define a contract 'Supplychain'
 contract SupplyChain is
-    FarmerRole,
-    DistributorRole,
+    Ownable,
+    ConsumerRole,
     RetailerRole,
-    ConsumerRole
+    DistributorRole,
+    FarmerRole
 {
     // Define 'owner'
-    address owner;
+    //address owner;
 
     // Define a variable called 'upc' for Universal Product Code (UPC)
     uint256 upc;
@@ -74,10 +74,10 @@ contract SupplyChain is
     event Purchased(uint256 upc);
 
     // Define a modifer that checks to see if msg.sender == owner of the contract
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
-    }
+    // modifier onlyOwner() {
+    //   require(msg.sender == owner);
+    //   _;
+    // }
 
     // Define a modifer that verifies the Caller
     modifier verifyCaller(address _address) {
@@ -96,8 +96,7 @@ contract SupplyChain is
         _;
         uint256 _price = items[_upc].productPrice;
         uint256 amountToReturn = msg.value - _price;
-        address payable consumerAddress = _make_payable(items[_upc].consumerID);
-        consumerAddress.transfer(amountToReturn);
+        items[_upc].consumerID.transfer(amountToReturn);
     }
 
     // Define a modifier that checks if an item.state of a upc is Harvested
@@ -151,44 +150,39 @@ contract SupplyChain is
     // In the constructor set 'owner' to the address that instantiated the contract
     // and set 'sku' to 1
     // and set 'upc' to 1
-    constructor() payable {
-        owner = msg.sender;
+    constructor() public payable {
+        // owner = msg.sender;
         sku = 1;
         upc = 1;
     }
 
     // Define a function 'kill' if required
-    function kill() public {
-        if (msg.sender == owner) {
-            selfdestruct(_make_payable(owner));
-        }
-    }
+    // function kill() public {
+    //   if (msg.sender == owner) {
+    //     selfdestruct(owner);
+    //   }
+    // }
 
     // Define a function 'harvestItem' that allows a farmer to mark an item 'Harvested'
     function harvestItem(
         uint256 _upc,
         address _originFarmerID,
-        string memory _originFarmName,
-        string memory _originFarmInformation,
-        string memory _originFarmLatitude,
-        string memory _originFarmLongitude,
-        string memory _productNotes
-    ) public {
+        string _originFarmName,
+        string _originFarmInformation,
+        string _originFarmLatitude,
+        string _originFarmLongitude,
+        string _productNotes
+    ) public onlyFarmer {
         // Add the new item as part of Harvest
-        Item storage item = items[_upc];
-
-        item.sku = sku;
-        item.upc = _upc;
-        item.ownerID = _originFarmerID;
-        item.originFarmerID = _originFarmerID;
-        item.originFarmName = _originFarmName;
-        item.originFarmInformation = _originFarmInformation;
-        item.originFarmLatitude = _originFarmLatitude;
-        item.originFarmLongitude = _originFarmLongitude;
-        item.productID = _upc + sku;
-        item.productNotes = _productNotes;
-        item.itemState = State.Harvested;
-
+        items[_upc].sku = sku;
+        items[_upc].upc = _upc;
+        items[_upc].originFarmerID = _originFarmerID;
+        items[_upc].originFarmName = _originFarmName;
+        items[_upc].originFarmInformation = _originFarmInformation;
+        items[_upc].originFarmLatitude = _originFarmLatitude;
+        items[_upc].originFarmLongitude = _originFarmLongitude;
+        items[_upc].productID = _upc + sku;
+        items[_upc].productNotes = _productNotes;
         // Increment sku
         sku = sku + 1;
         // Emit the appropriate event
@@ -219,7 +213,6 @@ contract SupplyChain is
     {
         // Update the appropriate fields
         items[_upc].itemState = State.Packed;
-
         // Emit the appropriate event
         emit Packed(_upc);
     }
@@ -228,14 +221,13 @@ contract SupplyChain is
     function sellItem(uint256 _upc, uint256 _price)
         public
         // Call modifier to check if upc has passed previous supply chain stage
-        packed(upc)
+        packed(_upc)
         // Call modifier to verify caller of this function
         verifyCaller(items[_upc].originFarmerID)
     {
         // Update the appropriate fields
         items[_upc].itemState = State.ForSale;
         items[_upc].productPrice = _price;
-
         // Emit the appropriate event
         emit ForSale(_upc);
     }
@@ -249,7 +241,7 @@ contract SupplyChain is
         // Call modifier to check if upc has passed previous supply chain stage
         forSale(_upc)
         // Call modifer to check if buyer has paid enough
-        paidEnough(items[_upc].productPrice)
+        paidEnough(msg.value)
         // Call modifer to send any excess ether back to buyer
         checkValue(_upc)
     {
@@ -258,9 +250,7 @@ contract SupplyChain is
         items[_upc].distributorID = msg.sender;
         items[_upc].itemState = State.Sold;
         // Transfer money to farmer
-        _make_payable(items[_upc].originFarmerID).transfer(
-            items[_upc].productPrice
-        );
+        items[_upc].originFarmerID.transfer(items[_upc].productPrice);
         // emit the appropriate event
         emit Sold(_upc);
     }
@@ -293,7 +283,6 @@ contract SupplyChain is
         items[_upc].ownerID = msg.sender;
         items[_upc].retailerID = msg.sender;
         items[_upc].itemState = State.Received;
-
         // Emit the appropriate event
         emit Received(_upc);
     }
@@ -311,7 +300,6 @@ contract SupplyChain is
         items[_upc].ownerID = msg.sender;
         items[_upc].consumerID = msg.sender;
         items[_upc].itemState = State.Purchased;
-
         // Emit the appropriate event
         emit Purchased(_upc);
     }
@@ -361,7 +349,7 @@ contract SupplyChain is
             uint256 itemSKU,
             uint256 itemUPC,
             uint256 productID,
-            string memory productNotes,
+            string productNotes,
             uint256 productPrice,
             uint256 itemState,
             address distributorID,
@@ -391,10 +379,5 @@ contract SupplyChain is
             retailerID,
             consumerID
         );
-    }
-
-    // Function that allows you to convert an address into a payable address
-    function _make_payable(address x) internal pure returns (address payable) {
-        return payable(address(uint160(x)));
     }
 }
